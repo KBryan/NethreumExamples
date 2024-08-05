@@ -31,9 +31,9 @@ namespace WalletGenerator
                 var address = ecKey.GetPublicAddress();
                 Console.WriteLine($"Ethereum Address: {address}");
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
-                Console.WriteLine($"An error occurred: {ex.Message}");
+                Console.WriteLine($"Wallets.Main: e={e}");
             }
         }
     }
