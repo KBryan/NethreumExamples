@@ -40,7 +40,8 @@ namespace WalletGenerator
                 var derivedPrivateKey = account.PrivateKey;
                 Console.WriteLine($"Derived Private Key: {derivedPrivateKey}");
 
-                // Generate the Ethereum Address
+                // Retrived the Ethereum Address
+
                 Console.WriteLine($"Ethereum Address: {account.Address}");
 
                 // Select 6 random words and their positions from the mnemonic
