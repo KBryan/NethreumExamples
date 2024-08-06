@@ -1,5 +1,7 @@
 using System;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using Nethereum.Hex.HexConvertors.Extensions;
 using Nethereum.Signer;
 using Nethereum.HdWallet;
@@ -28,6 +30,10 @@ namespace WalletGenerator
                 // Password for the wallet
                 string password = "password123"; // For demonstration purposes, use a secure method to handle passwords.
 
+                // Encrypt mnemonic
+                string encryptedMnemonic = EncryptString(mnemonic.ToString(), password);
+                Console.WriteLine($"Encrypted Mnemonic: {encryptedMnemonic}");
+
                 // Derive private key from mnemonic with password
                 var wallet = new Wallet(mnemonic.ToString(), password);
                 var account = wallet.GetAccount(0);
@@ -35,7 +41,6 @@ namespace WalletGenerator
                 Console.WriteLine($"Derived Private Key: {derivedPrivateKey}");
 
                 // Generate the Ethereum Address
-                var address = ecKey.GetPublicAddress();
                 Console.WriteLine($"Ethereum Address: {account.Address}");
 
                 // Select 6 random words and their positions from the mnemonic
@@ -87,8 +92,9 @@ namespace WalletGenerator
                     Console.WriteLine("Sorry, the words you entered are incorrect.");
                 }
 
-                // Retrieve account using mnemonic and password
-                var retrievedAccount = RetrieveAccount(mnemonic.ToString(), password, 0);
+                // Retrieve account using encrypted mnemonic and password
+                var decryptedMnemonic = DecryptString(encryptedMnemonic, password);
+                var retrievedAccount = RetrieveAccount(decryptedMnemonic, password, 0);
                 Console.WriteLine($"Retrieved Account Address: {retrievedAccount.Address}");
                 Console.WriteLine($"Retrieved Account Private Key: {retrievedAccount.PrivateKey}");
             }
@@ -102,6 +108,53 @@ namespace WalletGenerator
         {
             var wallet = new Wallet(mnemonic, password);
             return wallet.GetAccount(index);
+        }
+
+        static string EncryptString(string plainText, string password)
+        {
+            using (Aes aes = Aes.Create())
+            {
+                var salt = new byte[16];
+                RandomNumberGenerator.Fill(salt);
+
+                var key = new Rfc2898DeriveBytes(password, salt, 100000, HashAlgorithmName.SHA256);
+                aes.Key = key.GetBytes(32);
+                aes.IV = key.GetBytes(16);
+
+                using (var encryptor = aes.CreateEncryptor(aes.Key, aes.IV))
+                {
+                    var plainBytes = Encoding.UTF8.GetBytes(plainText);
+                    var encryptedBytes = encryptor.TransformFinalBlock(plainBytes, 0, plainBytes.Length);
+
+                    var result = new byte[salt.Length + encryptedBytes.Length];
+                    Buffer.BlockCopy(salt, 0, result, 0, salt.Length);
+                    Buffer.BlockCopy(encryptedBytes, 0, result, salt.Length, encryptedBytes.Length);
+
+                    return Convert.ToBase64String(result);
+                }
+            }
+        }
+
+        static string DecryptString(string encryptedText, string password)
+        {
+            var fullCipher = Convert.FromBase64String(encryptedText);
+            var salt = new byte[16];
+            Buffer.BlockCopy(fullCipher, 0, salt, 0, salt.Length);
+            var cipherBytes = new byte[fullCipher.Length - salt.Length];
+            Buffer.BlockCopy(fullCipher, salt.Length, cipherBytes, 0, cipherBytes.Length);
+
+            using (Aes aes = Aes.Create())
+            {
+                var key = new Rfc2898DeriveBytes(password, salt, 100000, HashAlgorithmName.SHA256);
+                aes.Key = key.GetBytes(32);
+                aes.IV = key.GetBytes(16);
+
+                using (var decryptor = aes.CreateDecryptor(aes.Key, aes.IV))
+                {
+                    var decryptedBytes = decryptor.TransformFinalBlock(cipherBytes, 0, cipherBytes.Length);
+                    return Encoding.UTF8.GetString(decryptedBytes);
+                }
+            }
         }
     }
 }
