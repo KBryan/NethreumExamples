@@ -31,8 +31,8 @@ namespace WalletGenerator
                 string password = "password123"; // For demonstration purposes, use a secure method to handle passwords.
                 
                 // Encrypt mnemonic
-                // string encryptedMnemonic = EncryptString(mnemonic.ToString(), password);
-                // Console.WriteLine($"Encrypted Mnemonic: {encryptedMnemonic}");
+                string encryptedMnemonic = EncryptString(mnemonic.ToString(), password);
+                Console.WriteLine($"Encrypted Mnemonic: {encryptedMnemonic}");
                 
                 // Derive private key from mnemonic with password
                 var wallet = new Wallet(mnemonic.ToString(), password);
@@ -88,10 +88,10 @@ namespace WalletGenerator
                 }
                 
                 // Retrieve account using encrypted mnemonic and password
-                // var decryptedMnemonic = DecryptString(encryptedMnemonic, password);
-                // var retrievedAccount = RetrieveAccount(decryptedMnemonic, password, 0);
-                // Console.WriteLine($"Retrieved Account Address: {retrievedAccount.Address}");
-                // Console.WriteLine($"Retrieved Account Private Key: {retrievedAccount.PrivateKey}");
+                 var decryptedMnemonic = DecryptString(encryptedMnemonic, password);
+                 var retrievedAccount = RetrieveAccount(decryptedMnemonic, password, 0);
+                 Console.WriteLine($"Retrieved Account Address: {retrievedAccount.Address}");
+                 Console.WriteLine($"Retrieved Account Private Key: {retrievedAccount.PrivateKey}");
             }
             catch (Exception e)
             {
