@@ -21,29 +21,41 @@ namespace WalletGenerator
                 var ecKey = EthECKey.GenerateKey();
                 var privateKey = ecKey.GetPrivateKeyAsBytes().ToHex();
                 Console.WriteLine($"Private Key: {privateKey}");
+                
                 // Generate mnemonic from entropy
                 var entropy = ecKey.GetPrivateKeyAsBytes();
                 var mnemonic = new Mnemonic(Wordlist.English, entropy);
                 Console.WriteLine($"Mnemonic: {mnemonic}");
+                
                 // Password for the wallet
                 string password = "password123"; // For demonstration purposes, use a secure method to handle passwords.
+                
                 // Encrypt mnemonic
-                string encryptedMnemonic = EncryptString(mnemonic.ToString(), password);
-                Console.WriteLine($"Encrypted Mnemonic: {encryptedMnemonic}");
+                // string encryptedMnemonic = EncryptString(mnemonic.ToString(), password);
+                // Console.WriteLine($"Encrypted Mnemonic: {encryptedMnemonic}");
+                
                 // Derive private key from mnemonic with password
                 var wallet = new Wallet(mnemonic.ToString(), password);
                 var account = wallet.GetAccount(0);
                 var derivedPrivateKey = account.PrivateKey;
                 Console.WriteLine($"Derived Private Key: {derivedPrivateKey}");
+                
                 // Generate the Ethereum Address
                 Console.WriteLine($"Ethereum Address: {account.Address}");
+                
                 // Select 6 random words and their positions from the mnemonic
                 var words = mnemonic.Words;
                 var random = new Random();
+                
+                // Generate a list of 6 unique random positions within the range of the 'words' array length.
                 var positions = Enumerable.Range(0, words.Length).OrderBy(x => random.Next()).Take(6).ToList();
-                var selectedWords = positions.Select(pos => new { Word = words[pos], Position = pos + 1 }).ToList();
+                
+                // Create a list of anonymous objects containing a word from the 'words' array and its 1-based position.
+                var selectedWords = positions.Select(pos => new { Word = words[pos], Position = pos + 1 }).Cast<dynamic>().ToList();
+                
                 // Print selected words and positions for reference (this would not be shown to the user in a real game)
                 Console.WriteLine("Selected words and positions (for debugging): " + string.Join(", ", selectedWords.Select(sw => $"{sw.Word} at position {sw.Position}")));
+                
                 // Prompt user to input the words at specific positions
                 var userInputs = new List<string>();
                 foreach (var sw in selectedWords)
@@ -63,40 +75,60 @@ namespace WalletGenerator
                         }
                     }
                 }
+                
                 // Validate user input
-                bool isValid = true;
-                for (int i = 0; i < 6; i++)
-                {
-                    if (userInputs[i] != selectedWords[i].Word)
-                    {
-                        isValid = false;
-                        break;
-                    }
-                }
+                bool isValid = ValidateUserInput(userInputs.ToArray(), selectedWords);
                 if (isValid)
                 {
-                    Console.WriteLine("Congratulations! You entered the correct words.");
+                    Console.WriteLine($"Congratulations! You entered the correct words.\nThe account {account.Address} has been funded with 10 Coins");
                 }
                 else
                 {
                     Console.WriteLine("Sorry, the words you entered are incorrect.");
                 }
+                
                 // Retrieve account using encrypted mnemonic and password
-                var decryptedMnemonic = DecryptString(encryptedMnemonic, password);
-                var retrievedAccount = RetrieveAccount(decryptedMnemonic, password, 0);
-                Console.WriteLine($"Retrieved Account Address: {retrievedAccount.Address}");
-                Console.WriteLine($"Retrieved Account Private Key: {retrievedAccount.PrivateKey}");
+                // var decryptedMnemonic = DecryptString(encryptedMnemonic, password);
+                // var retrievedAccount = RetrieveAccount(decryptedMnemonic, password, 0);
+                // Console.WriteLine($"Retrieved Account Address: {retrievedAccount.Address}");
+                // Console.WriteLine($"Retrieved Account Private Key: {retrievedAccount.PrivateKey}");
             }
             catch (Exception e)
             {
                 Console.WriteLine($"Wallets.Main: e={e}");
             }
         }
+
+        /// <summary>
+        /// Validates the user input against the selected words.
+        /// </summary>
+        /// <param name="userInputs">An array of user input words.</param>
+        /// <param name="selectedWords">A list of anonymous objects containing words and their positions.</param>
+        /// <returns>True if the user inputs match the selected words; otherwise, false.</returns>
+        static bool ValidateUserInput(string[] userInputs, List<dynamic> selectedWords)
+        {
+            if (userInputs == null || selectedWords == null || userInputs.Length != selectedWords.Count)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < userInputs.Length; i++)
+            {
+                if (userInputs[i] != selectedWords[i].Word)
+                {
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+
         static Account RetrieveAccount(string mnemonic, string password, int index)
         {
             var wallet = new Wallet(mnemonic, password);
             return wallet.GetAccount(index);
         }
+
         // Encrypts a plain text string using AES encryption with a specified password
         static string EncryptString(string plainText, string password)
         {
@@ -121,6 +153,7 @@ namespace WalletGenerator
                 }
             }
         }
+
         // Decrypts an encrypted string using AES decryption with a specified password
         static string DecryptString(string encryptedText, string password)
         {
