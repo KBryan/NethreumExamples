@@ -12,15 +12,8 @@ using Nethereum.Web3.Accounts;
 
 namespace WalletGenerator
 {
-    /// <summary>
-    /// This class contains methods to generate and manage Ethereum wallets, including private key encryption and decryption.
-    /// </summary>
     class Wallets
     {
-        /// <summary>
-        /// Main entry point of the Wallets class.
-        /// </summary>
-        /// <param name="args">Command line arguments.</param>
         static void Main(string[] args)
         {
             try
@@ -40,13 +33,10 @@ namespace WalletGenerator
             catch (Exception e)
             {
                 Console.WriteLine($"An error occurred: {e.Message}");
+                // Log error details securely
             }
         }
 
-        /// <summary>
-        /// Generates a new Ethereum private key.
-        /// </summary>
-        /// <returns>Returns an instance of EthECKey containing the generated private key.</returns>
         static EthECKey GeneratePrivateKey()
         {
             var ecKey = EthECKey.GenerateKey();
@@ -55,11 +45,6 @@ namespace WalletGenerator
             return ecKey;
         }
 
-        /// <summary>
-        /// Generates a mnemonic from the given Ethereum private key.
-        /// </summary>
-        /// <param name="ecKey">The Ethereum private key.</param>
-        /// <returns>Returns a mnemonic instance.</returns>
         static Mnemonic GenerateMnemonic(EthECKey ecKey)
         {
             var entropy = ecKey.GetPrivateKeyAsBytes();
@@ -68,15 +53,10 @@ namespace WalletGenerator
             return mnemonic;
         }
 
-        /// <summary>
-        /// Generates a random message using the given word list.
-        /// </summary>
-        /// <param name="wordList">The list of words to use for generating the message.</param>
-        /// <returns>Returns the generated random message.</returns>
         static string GenerateRandomMessage(string[] wordList)
         {
             var random = new Random();
-            int wordCount = random.Next(5, 15); // Randomly choose between 5 and 15 words
+            int wordCount = random.Next(5, 15);
             var selectedWords = new List<string>();
 
             for (int i = 0; i < wordCount; i++)
@@ -90,12 +70,6 @@ namespace WalletGenerator
             return message;
         }
 
-        /// <summary>
-        /// Signs the given message using the provided Ethereum private key.
-        /// </summary>
-        /// <param name="ecKey">The Ethereum private key.</param>
-        /// <param name="message">The message to sign.</param>
-        /// <returns>Returns the signed message.</returns>
         static string SignMessage(EthECKey ecKey, string message)
         {
             var signer = new EthereumMessageSigner();
@@ -104,10 +78,6 @@ namespace WalletGenerator
             return signature;
         }
 
-        /// <summary>
-        /// Displays the private key in three parts for security.
-        /// </summary>
-        /// <param name="privateKeyBytes">The private key in byte array format.</param>
         static void DisplaySplitPrivateKey(byte[] privateKeyBytes)
         {
             int partLength = privateKeyBytes.Length / 3;
@@ -132,18 +102,6 @@ namespace WalletGenerator
             }
         }
 
-        /// <summary>
-        /// Handles user input to verify the mnemonic and decrypt the private key.
-        /// </summary>
-        /// <param name="words">The mnemonic words.</param>
-        /// <param name="ecKey">The Ethereum private key.</param>
-        /// <param name="message">The signed message.</param>
-        /// <param name="signature">The message signature.</param>
-        /// <param name="encryptedPrivateKey">The encrypted private key.</param>
-        /// <param name="encryptedMnemonic">The encrypted mnemonic.</param>
-        /// <param name="hashedSignature">The hashed signature used as a password.</param>
-        /// <param name="privateKeySalt">The salt used for encrypting the private key.</param>
-        /// <param name="mnemonicSalt">The salt used for encrypting the mnemonic.</param>
         static void HandleUserInput(string[] words, EthECKey ecKey, string message, string signature, string encryptedPrivateKey, string encryptedMnemonic, byte[] hashedSignature, byte[] privateKeySalt, byte[] mnemonicSalt)
         {
             var random = new Random();
@@ -158,7 +116,7 @@ namespace WalletGenerator
                 while (string.IsNullOrEmpty(userInput))
                 {
                     Console.Write($"Enter the word at position {sw.Position}: ");
-                    userInput = Console.ReadLine();
+                    userInput = SecureReadLine();
                     if (!string.IsNullOrEmpty(userInput))
                     {
                         userInputs.Add(userInput);
@@ -173,7 +131,8 @@ namespace WalletGenerator
             bool isValid = ValidateUserInput(userInputs.ToArray(), selectedWords);
             if (isValid)
             {
-                Console.WriteLine($"Congratulations! You entered the correct words.\nThe account {ecKey.GetPublicAddress()} has been funded with 10 Coins");
+                
+                Console.WriteLine($"Congratulations! You entered the correct words.\n Perform so other logic here.");
             }
             else
             {
@@ -183,20 +142,10 @@ namespace WalletGenerator
             VerifyAndDecryptPrivateKey(ecKey, message, encryptedPrivateKey, encryptedMnemonic, signature, privateKeySalt, mnemonicSalt);
         }
 
-        /// <summary>
-        /// Verifies the message signature and decrypts the private key and mnemonic.
-        /// </summary>
-        /// <param name="ecKey">The Ethereum private key.</param>
-        /// <param name="message">The signed message.</param>
-        /// <param name="encryptedPrivateKey">The encrypted private key.</param>
-        /// <param name="encryptedMnemonic">The encrypted mnemonic.</param>
-        /// <param name="signature">The message signature.</param>
-        /// <param name="privateKeySalt">The salt used for encrypting the private key.</param>
-        /// <param name="mnemonicSalt">The salt used for encrypting the mnemonic.</param>
         static void VerifyAndDecryptPrivateKey(EthECKey ecKey, string message, string encryptedPrivateKey, string encryptedMnemonic, string signature, byte[] privateKeySalt, byte[] mnemonicSalt)
         {
             Console.Write("Enter the signed message: ");
-            string? userProvidedSignature = Console.ReadLine();
+            string? userProvidedSignature = SecureReadLine();
             if (string.IsNullOrEmpty(userProvidedSignature))
             {
                 Console.WriteLine("Invalid signature input.");
@@ -234,11 +183,6 @@ namespace WalletGenerator
             }
         }
 
-        /// <summary>
-        /// Computes the SHA256 hash of the given string.
-        /// </summary>
-        /// <param name="rawData">The input string to hash.</param>
-        /// <returns>Returns the computed SHA256 hash as a byte array.</returns>
         static byte[] ComputeSha256Hash(string rawData)
         {
             using (SHA256 sha256Hash = SHA256.Create())
@@ -247,20 +191,13 @@ namespace WalletGenerator
             }
         }
 
-        /// <summary>
-        /// Encrypts the private key using AES encryption with a derived key from the password and salt.
-        /// </summary>
-        /// <param name="privateKeyBytes">The private key to encrypt as a byte array.</param>
-        /// <param name="password">The password used for encryption.</param>
-        /// <param name="salt">The salt used for encryption, output parameter.</param>
-        /// <returns>Returns the encrypted private key as a Base64 string.</returns>
         static string EncryptPrivateKeyWithSalt(byte[] privateKeyBytes, byte[] password, out byte[] salt)
         {
             using (Aes aes = Aes.Create())
             {
                 salt = new byte[16];
                 RandomNumberGenerator.Fill(salt);
-                aes.Key = new Rfc2898DeriveBytes(password, salt, 100000, HashAlgorithmName.SHA256).GetBytes(32); // Derive key using salt
+                aes.Key = new Rfc2898DeriveBytes(password, salt, 200000, HashAlgorithmName.SHA256).GetBytes(32); // Increased iterations
                 aes.GenerateIV();
                 byte[] iv = aes.IV;
                 using (var encryptor = aes.CreateEncryptor(aes.Key, aes.IV))
@@ -279,13 +216,6 @@ namespace WalletGenerator
             }
         }
 
-        /// <summary>
-        /// Decrypts the private key using AES decryption with a derived key from the password and salt.
-        /// </summary>
-        /// <param name="encryptedPrivateKey">The encrypted private key as a Base64 string.</param>
-        /// <param name="password">The password used for decryption.</param>
-        /// <param name="salt">The salt used for decryption.</param>
-        /// <returns>Returns the decrypted private key as a byte array.</returns>
         static byte[] DecryptPrivateKeyWithSalt(string encryptedPrivateKey, byte[] password, byte[] salt)
         {
             byte[] fullCipher = Convert.FromBase64String(encryptedPrivateKey);
@@ -298,7 +228,7 @@ namespace WalletGenerator
                 Buffer.BlockCopy(fullCipher, salt.Length, iv, 0, iv.Length); // Read IV
                 Buffer.BlockCopy(fullCipher, salt.Length + iv.Length, cipherText, 0, cipherText.Length); // Read ciphertext
 
-                aes.Key = new Rfc2898DeriveBytes(password, salt, 100000, HashAlgorithmName.SHA256).GetBytes(32); // Derive key using salt
+                aes.Key = new Rfc2898DeriveBytes(password, salt, 200000, HashAlgorithmName.SHA256).GetBytes(32); // Increased iterations
                 aes.IV = iv;
 
                 using (var decryptor = aes.CreateDecryptor(aes.Key, aes.IV))
@@ -317,20 +247,13 @@ namespace WalletGenerator
             }
         }
 
-        /// <summary>
-        /// Encrypts a string using AES encryption with a derived key from the password and salt.
-        /// </summary>
-        /// <param name="plainText">The plaintext string to encrypt.</param>
-        /// <param name="password">The password used for encryption.</param>
-        /// <param name="salt">The salt used for encryption, output parameter.</param>
-        /// <returns>Returns the encrypted string as a Base64 string.</returns>
         static string EncryptStringWithSalt(string plainText, byte[] password, out byte[] salt)
         {
             using (Aes aes = Aes.Create())
             {
                 salt = new byte[16];
                 RandomNumberGenerator.Fill(salt);
-                aes.Key = new Rfc2898DeriveBytes(password, salt, 100000, HashAlgorithmName.SHA256).GetBytes(32); // Derive key using salt
+                aes.Key = new Rfc2898DeriveBytes(password, salt, 200000, HashAlgorithmName.SHA256).GetBytes(32); // Increased iterations
                 aes.GenerateIV();
                 byte[] iv = aes.IV;
                 using (var encryptor = aes.CreateEncryptor(aes.Key, aes.IV))
@@ -352,13 +275,6 @@ namespace WalletGenerator
             }
         }
 
-        /// <summary>
-        /// Decrypts a string using AES decryption with a derived key from the password and salt.
-        /// </summary>
-        /// <param name="encryptedText">The encrypted string as a Base64 string.</param>
-        /// <param name="password">The password used for decryption.</param>
-        /// <param name="salt">The salt used for decryption.</param>
-        /// <returns>Returns the decrypted plaintext string.</returns>
         static string DecryptStringWithSalt(string encryptedText, byte[] password, byte[] salt)
         {
             byte[] fullCipher = Convert.FromBase64String(encryptedText);
@@ -371,7 +287,7 @@ namespace WalletGenerator
                 Buffer.BlockCopy(fullCipher, salt.Length, iv, 0, iv.Length); // Read IV
                 Buffer.BlockCopy(fullCipher, salt.Length + iv.Length, cipherText, 0, cipherText.Length); // Read ciphertext
 
-                aes.Key = new Rfc2898DeriveBytes(password, salt, 100000, HashAlgorithmName.SHA256).GetBytes(32); // Derive key using salt
+                aes.Key = new Rfc2898DeriveBytes(password, salt, 200000, HashAlgorithmName.SHA256).GetBytes(32); // Increased iterations
                 aes.IV = iv;
 
                 using (var decryptor = aes.CreateDecryptor(aes.Key, aes.IV))
@@ -390,12 +306,6 @@ namespace WalletGenerator
             }
         }
 
-        /// <summary>
-        /// Validates the user input against the selected mnemonic words.
-        /// </summary>
-        /// <param name="userInputs">The user input words.</param>
-        /// <param name="selectedWords">The selected mnemonic words with their positions.</param>
-        /// <returns>Returns true if the user inputs match the selected words; otherwise, false.</returns>
         static bool ValidateUserInput(string[] userInputs, List<dynamic> selectedWords)
         {
             if (userInputs == null || selectedWords == null || userInputs.Length != selectedWords.Count)
@@ -414,17 +324,39 @@ namespace WalletGenerator
             return true;
         }
 
-        /// <summary>
-        /// Retrieves an Ethereum account using the mnemonic and password.
-        /// </summary>
-        /// <param name="mnemonic">The mnemonic.</param>
-        /// <param name="password">The password used to derive the key.</param>
-        /// <param name="index">The account index.</param>
-        /// <returns>Returns the Ethereum account.</returns>
         static Account RetrieveAccount(string mnemonic, byte[] password, int index)
         {
             var wallet = new Wallet(mnemonic, Encoding.UTF8.GetString(password));
             return wallet.GetAccount(index);
+        }
+
+        // Secure method to read user input
+        static string SecureReadLine()
+        {
+            StringBuilder input = new StringBuilder();
+            while (true)
+            {
+                ConsoleKeyInfo key = Console.ReadKey(true);
+                if (key.Key == ConsoleKey.Enter)
+                {
+                    break;
+                }
+                else if (key.Key == ConsoleKey.Backspace)
+                {
+                    if (input.Length > 0)
+                    {
+                        Console.Write("\b \b");
+                        input.Length--;
+                    }
+                }
+                else
+                {
+                    input.Append(key.KeyChar);
+                    Console.Write("*");
+                }
+            }
+            Console.WriteLine();
+            return input.ToString();
         }
     }
 }
