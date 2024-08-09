@@ -10,34 +10,59 @@ using NBitcoin;
 using System.Collections.Generic;
 using Nethereum.Web3.Accounts;
 
-namespace WalletGenerator
+namespace SecureWalletGenerator
 {
-    class Wallets
+    internal class Wallets
     {
-        static void Main(string[] args)
+        private const string enterSignMessage = "Enter the signed message: ";
+        private static readonly int Pbkdf2Iterations = 200000;
+
+        private static void Main(string[] args)
         {
+            byte[]? ecKeyBytes = null; // Mark as nullable
+            StringBuilder sensitiveString = new StringBuilder();
+
             try
             {
                 var ecKey = GeneratePrivateKey();
-                var mnemonic = GenerateMnemonic(ecKey);
+
+                if (ecKey == null)
+                {
+                    throw new InvalidOperationException("Private key generation failed.");
+                }
+
+                ecKeyBytes = ecKey.GetPrivateKeyAsBytes();
+                
+                var mnemonic = GenerateMnemonic();
+                sensitiveString.Append(mnemonic.ToString());
+
                 var message = GenerateRandomMessage(mnemonic.Words);
-                var signature = SignMessage(ecKey, message);
+                var signature = SignMessage(ecKey, message); // Now ecKey is guaranteed non-null
                 var hashedSignature = ComputeSha256Hash(signature);
 
-                var encryptedPrivateKey = EncryptPrivateKeyWithSalt(ecKey.GetPrivateKeyAsBytes(), hashedSignature, out var privateKeySalt);
+                var encryptedPrivateKey = EncryptPrivateKeyWithSalt(ecKeyBytes, hashedSignature, out var privateKeySalt);
                 var encryptedMnemonic = EncryptStringWithSalt(mnemonic.ToString(), hashedSignature, out var mnemonicSalt);
 
-                DisplaySplitPrivateKey(ecKey.GetPrivateKeyAsBytes());
+                DisplaySplitPrivateKey(ecKeyBytes);
                 HandleUserInput(mnemonic.Words, ecKey, message, signature, encryptedPrivateKey, encryptedMnemonic, hashedSignature, privateKeySalt, mnemonicSalt);
             }
             catch (Exception e)
             {
-                Console.WriteLine($"An error occurred: {e.Message}");
-                // Log error details securely
+                LogError(e);
+                Console.WriteLine("An error occurred. Please check the log for details.");
+            }
+            finally
+            {
+                // Clear sensitive data from memory
+                if (ecKeyBytes != null)
+                {
+                    ClearSensitiveData(ecKeyBytes);
+                }
+                ClearSensitiveString(sensitiveString);
             }
         }
 
-        static EthECKey GeneratePrivateKey()
+        private static EthECKey GeneratePrivateKey()
         {
             var ecKey = EthECKey.GenerateKey();
             var privateKeyHex = ecKey.GetPrivateKeyAsBytes().ToHex();
@@ -45,23 +70,27 @@ namespace WalletGenerator
             return ecKey;
         }
 
-        static Mnemonic GenerateMnemonic(EthECKey ecKey)
+        private static Mnemonic GenerateMnemonic()
         {
-            var entropy = ecKey.GetPrivateKeyAsBytes();
+            var entropy = new byte[16]; // 128-bit entropy for a 12-word mnemonic
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(entropy);
+            }
             var mnemonic = new Mnemonic(Wordlist.English, entropy);
             Console.WriteLine($"Mnemonic: {mnemonic}");
             return mnemonic;
         }
 
-        static string GenerateRandomMessage(string[] wordList)
+        private static string GenerateRandomMessage(string[] wordList)
         {
-            var random = new Random();
-            int wordCount = random.Next(5, 15);
+            int wordCount = RandomNumberGenerator.GetInt32(5, 15);
             var selectedWords = new List<string>();
 
             for (int i = 0; i < wordCount; i++)
             {
-                var randomWord = wordList[random.Next(wordList.Length)];
+                var randomIndex = RandomNumberGenerator.GetInt32(wordList.Length);
+                var randomWord = wordList[randomIndex];
                 selectedWords.Add(randomWord);
             }
 
@@ -70,7 +99,7 @@ namespace WalletGenerator
             return message;
         }
 
-        static string SignMessage(EthECKey ecKey, string message)
+        private static string SignMessage(EthECKey ecKey, string message)
         {
             var signer = new EthereumMessageSigner();
             var signature = signer.EncodeUTF8AndSign(message, ecKey);
@@ -78,7 +107,7 @@ namespace WalletGenerator
             return signature;
         }
 
-        static void DisplaySplitPrivateKey(byte[] privateKeyBytes)
+        private static void DisplaySplitPrivateKey(byte[] privateKeyBytes)
         {
             int partLength = privateKeyBytes.Length / 3;
             var part1 = privateKeyBytes.Take(partLength).ToArray();
@@ -102,7 +131,7 @@ namespace WalletGenerator
             }
         }
 
-        static void HandleUserInput(string[] words, EthECKey ecKey, string message, string signature, string encryptedPrivateKey, string encryptedMnemonic, byte[] hashedSignature, byte[] privateKeySalt, byte[] mnemonicSalt)
+        private static void HandleUserInput(string[] words, EthECKey ecKey, string message, string signature, string encryptedPrivateKey, string encryptedMnemonic, byte[] hashedSignature, byte[] privateKeySalt, byte[] mnemonicSalt)
         {
             var random = new Random();
             var positions = Enumerable.Range(0, words.Length).OrderBy(x => random.Next()).Take(6).ToList();
@@ -131,8 +160,7 @@ namespace WalletGenerator
             bool isValid = ValidateUserInput(userInputs.ToArray(), selectedWords);
             if (isValid)
             {
-                
-                Console.WriteLine($"Congratulations! You entered the correct words.\n Perform so other logic here.");
+                Console.WriteLine($"Congratulations! You entered the correct words.\nPerform some other logic here.");
             }
             else
             {
@@ -142,9 +170,9 @@ namespace WalletGenerator
             VerifyAndDecryptPrivateKey(ecKey, message, encryptedPrivateKey, encryptedMnemonic, signature, privateKeySalt, mnemonicSalt);
         }
 
-        static void VerifyAndDecryptPrivateKey(EthECKey ecKey, string message, string encryptedPrivateKey, string encryptedMnemonic, string signature, byte[] privateKeySalt, byte[] mnemonicSalt)
+        private static void VerifyAndDecryptPrivateKey(EthECKey ecKey, string message, string encryptedPrivateKey, string encryptedMnemonic, string signature, byte[] privateKeySalt, byte[] mnemonicSalt)
         {
-            Console.Write("Enter the signed message: ");
+            Console.Write(enterSignMessage);
             string? userProvidedSignature = SecureReadLine();
             if (string.IsNullOrEmpty(userProvidedSignature))
             {
@@ -183,7 +211,7 @@ namespace WalletGenerator
             }
         }
 
-        static byte[] ComputeSha256Hash(string rawData)
+        private static byte[] ComputeSha256Hash(string rawData)
         {
             using (SHA256 sha256Hash = SHA256.Create())
             {
@@ -191,20 +219,19 @@ namespace WalletGenerator
             }
         }
 
-        static string EncryptPrivateKeyWithSalt(byte[] privateKeyBytes, byte[] password, out byte[] salt)
+        private static string EncryptPrivateKeyWithSalt(byte[] privateKeyBytes, byte[] password, out byte[] salt)
         {
             using (Aes aes = Aes.Create())
             {
                 salt = new byte[16];
                 RandomNumberGenerator.Fill(salt);
-                aes.Key = new Rfc2898DeriveBytes(password, salt, 200000, HashAlgorithmName.SHA256).GetBytes(32); // Increased iterations
+                aes.Key = new Rfc2898DeriveBytes(password, salt, Pbkdf2Iterations, HashAlgorithmName.SHA256).GetBytes(32);
                 aes.GenerateIV();
                 byte[] iv = aes.IV;
                 using (var encryptor = aes.CreateEncryptor(aes.Key, aes.IV))
                 {
                     using (var ms = new MemoryStream())
                     {
-                        ms.Write(salt, 0, salt.Length); // Write salt to the output stream
                         ms.Write(iv, 0, iv.Length); // Write IV to the output stream
                         using (var cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write))
                         {
@@ -216,19 +243,18 @@ namespace WalletGenerator
             }
         }
 
-        static byte[] DecryptPrivateKeyWithSalt(string encryptedPrivateKey, byte[] password, byte[] salt)
+        private static byte[] DecryptPrivateKeyWithSalt(string encryptedPrivateKey, byte[] password, byte[] salt)
         {
             byte[] fullCipher = Convert.FromBase64String(encryptedPrivateKey);
             using (Aes aes = Aes.Create())
             {
                 byte[] iv = new byte[aes.BlockSize / 8];
-                byte[] cipherText = new byte[fullCipher.Length - salt.Length - iv.Length];
+                byte[] cipherText = new byte[fullCipher.Length - iv.Length];
 
-                Buffer.BlockCopy(fullCipher, 0, salt, 0, salt.Length); // Read salt
-                Buffer.BlockCopy(fullCipher, salt.Length, iv, 0, iv.Length); // Read IV
-                Buffer.BlockCopy(fullCipher, salt.Length + iv.Length, cipherText, 0, cipherText.Length); // Read ciphertext
+                Buffer.BlockCopy(fullCipher, 0, iv, 0, iv.Length); // Read IV
+                Buffer.BlockCopy(fullCipher, iv.Length, cipherText, 0, cipherText.Length); // Read ciphertext
 
-                aes.Key = new Rfc2898DeriveBytes(password, salt, 200000, HashAlgorithmName.SHA256).GetBytes(32); // Increased iterations
+                aes.Key = new Rfc2898DeriveBytes(password, salt, Pbkdf2Iterations, HashAlgorithmName.SHA256).GetBytes(32);
                 aes.IV = iv;
 
                 using (var decryptor = aes.CreateDecryptor(aes.Key, aes.IV))
@@ -247,20 +273,19 @@ namespace WalletGenerator
             }
         }
 
-        static string EncryptStringWithSalt(string plainText, byte[] password, out byte[] salt)
+        private static string EncryptStringWithSalt(string plainText, byte[] password, out byte[] salt)
         {
             using (Aes aes = Aes.Create())
             {
                 salt = new byte[16];
                 RandomNumberGenerator.Fill(salt);
-                aes.Key = new Rfc2898DeriveBytes(password, salt, 200000, HashAlgorithmName.SHA256).GetBytes(32); // Increased iterations
+                aes.Key = new Rfc2898DeriveBytes(password, salt, Pbkdf2Iterations, HashAlgorithmName.SHA256).GetBytes(32);
                 aes.GenerateIV();
                 byte[] iv = aes.IV;
                 using (var encryptor = aes.CreateEncryptor(aes.Key, aes.IV))
                 {
                     using (var ms = new MemoryStream())
                     {
-                        ms.Write(salt, 0, salt.Length); // Write salt to the output stream
                         ms.Write(iv, 0, iv.Length); // Write IV to the output stream
                         using (var cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write))
                         {
@@ -275,19 +300,18 @@ namespace WalletGenerator
             }
         }
 
-        static string DecryptStringWithSalt(string encryptedText, byte[] password, byte[] salt)
+        private static string DecryptStringWithSalt(string encryptedText, byte[] password, byte[] salt)
         {
             byte[] fullCipher = Convert.FromBase64String(encryptedText);
             using (Aes aes = Aes.Create())
             {
                 byte[] iv = new byte[aes.BlockSize / 8];
-                byte[] cipherText = new byte[fullCipher.Length - salt.Length - iv.Length];
+                byte[] cipherText = new byte[fullCipher.Length - iv.Length];
 
-                Buffer.BlockCopy(fullCipher, 0, salt, 0, salt.Length); // Read salt
-                Buffer.BlockCopy(fullCipher, salt.Length, iv, 0, iv.Length); // Read IV
-                Buffer.BlockCopy(fullCipher, salt.Length + iv.Length, cipherText, 0, cipherText.Length); // Read ciphertext
+                Buffer.BlockCopy(fullCipher, 0, iv, 0, iv.Length); // Read IV
+                Buffer.BlockCopy(fullCipher, iv.Length, cipherText, 0, cipherText.Length); // Read ciphertext
 
-                aes.Key = new Rfc2898DeriveBytes(password, salt, 200000, HashAlgorithmName.SHA256).GetBytes(32); // Increased iterations
+                aes.Key = new Rfc2898DeriveBytes(password, salt, Pbkdf2Iterations, HashAlgorithmName.SHA256).GetBytes(32);
                 aes.IV = iv;
 
                 using (var decryptor = aes.CreateDecryptor(aes.Key, aes.IV))
@@ -306,7 +330,7 @@ namespace WalletGenerator
             }
         }
 
-        static bool ValidateUserInput(string[] userInputs, List<dynamic> selectedWords)
+        private static bool ValidateUserInput(string[] userInputs, List<dynamic> selectedWords)
         {
             if (userInputs == null || selectedWords == null || userInputs.Length != selectedWords.Count)
             {
@@ -324,14 +348,13 @@ namespace WalletGenerator
             return true;
         }
 
-        static Account RetrieveAccount(string mnemonic, byte[] password, int index)
+        private static Account RetrieveAccount(string mnemonic, byte[] password, int index)
         {
             var wallet = new Wallet(mnemonic, Encoding.UTF8.GetString(password));
             return wallet.GetAccount(index);
         }
 
-        // Secure method to read user input
-        static string SecureReadLine()
+        private static string SecureReadLine()
         {
             StringBuilder input = new StringBuilder();
             while (true)
@@ -357,6 +380,31 @@ namespace WalletGenerator
             }
             Console.WriteLine();
             return input.ToString();
+        }
+
+        private static void ClearSensitiveData(byte[] data)
+        {
+            if (data != null)
+            {
+                Array.Clear(data, 0, data.Length);
+            }
+        }
+
+        private static void ClearSensitiveString(StringBuilder data)
+        {
+            if (data != null)
+            {
+                data.Clear();
+            }
+        }
+
+        private static void LogError(Exception e)
+        {
+            using (StreamWriter log = File.AppendText("error_log.txt"))
+            {
+                log.WriteLine($"Error occurred at {DateTime.Now}: {e.Message}");
+                log.WriteLine(e.StackTrace);
+            }
         }
     }
 }
