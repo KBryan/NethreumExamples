@@ -12,14 +12,21 @@ using Nethereum.Web3.Accounts;
 
 namespace SecureWalletGenerator
 {
+    /// <summary>
+    /// Provides methods for generating, encrypting, and managing Ethereum wallets.
+    /// </summary>
     internal class Wallets
     {
         private const string enterSignMessage = "Enter the signed message: ";
         private static readonly int Pbkdf2Iterations = 200000;
 
+        /// <summary>
+        /// The main entry point of the application.
+        /// </summary>
+        /// <param name="args">Command-line arguments.</param>
         private static void Main(string[] args)
         {
-            byte[]? ecKeyBytes = null; // Mark as nullable
+            byte[]? ecKeyBytes = null;
             StringBuilder sensitiveString = new StringBuilder();
 
             try
@@ -32,12 +39,12 @@ namespace SecureWalletGenerator
                 }
 
                 ecKeyBytes = ecKey.GetPrivateKeyAsBytes();
-                
+
                 var mnemonic = GenerateMnemonic();
                 sensitiveString.Append(mnemonic.ToString());
 
                 var message = GenerateRandomMessage(mnemonic.Words);
-                var signature = SignMessage(ecKey, message); // Now ecKey is guaranteed non-null
+                var signature = SignMessage(ecKey, message);
                 var hashedSignature = ComputeSha256Hash(signature);
 
                 var encryptedPrivateKey = EncryptPrivateKeyWithSalt(ecKeyBytes, hashedSignature, out var privateKeySalt);
@@ -62,6 +69,10 @@ namespace SecureWalletGenerator
             }
         }
 
+        /// <summary>
+        /// Generates a new Ethereum private key.
+        /// </summary>
+        /// <returns>An instance of <see cref="EthECKey"/> containing the generated private key.</returns>
         private static EthECKey GeneratePrivateKey()
         {
             var ecKey = EthECKey.GenerateKey();
@@ -70,6 +81,10 @@ namespace SecureWalletGenerator
             return ecKey;
         }
 
+        /// <summary>
+        /// Generates a mnemonic phrase based on a randomly generated entropy.
+        /// </summary>
+        /// <returns>An instance of <see cref="Mnemonic"/> containing the generated mnemonic.</returns>
         private static Mnemonic GenerateMnemonic()
         {
             var entropy = new byte[16]; // 128-bit entropy for a 12-word mnemonic
@@ -82,6 +97,11 @@ namespace SecureWalletGenerator
             return mnemonic;
         }
 
+        /// <summary>
+        /// Generates a random message by selecting words from the mnemonic.
+        /// </summary>
+        /// <param name="wordList">The list of words in the mnemonic.</param>
+        /// <returns>A randomly generated message.</returns>
         private static string GenerateRandomMessage(string[] wordList)
         {
             int wordCount = RandomNumberGenerator.GetInt32(5, 15);
@@ -99,6 +119,12 @@ namespace SecureWalletGenerator
             return message;
         }
 
+        /// <summary>
+        /// Signs a message using the provided Ethereum private key.
+        /// </summary>
+        /// <param name="ecKey">The Ethereum private key used for signing.</param>
+        /// <param name="message">The message to be signed.</param>
+        /// <returns>The signature of the message.</returns>
         private static string SignMessage(EthECKey ecKey, string message)
         {
             var signer = new EthereumMessageSigner();
@@ -107,6 +133,10 @@ namespace SecureWalletGenerator
             return signature;
         }
 
+        /// <summary>
+        /// Splits the private key into three parts, displays them, and verifies the recombination.
+        /// </summary>
+        /// <param name="privateKeyBytes">The private key in byte array form.</param>
         private static void DisplaySplitPrivateKey(byte[] privateKeyBytes)
         {
             int partLength = privateKeyBytes.Length / 3;
@@ -131,6 +161,18 @@ namespace SecureWalletGenerator
             }
         }
 
+        /// <summary>
+        /// Handles user input for mnemonic word validation and decrypts the private key if valid.
+        /// </summary>
+        /// <param name="words">The words in the mnemonic.</param>
+        /// <param name="ecKey">The Ethereum private key.</param>
+        /// <param name="message">The original message.</param>
+        /// <param name="signature">The signature of the message.</param>
+        /// <param name="encryptedPrivateKey">The encrypted private key.</param>
+        /// <param name="encryptedMnemonic">The encrypted mnemonic.</param>
+        /// <param name="hashedSignature">The hash of the signature.</param>
+        /// <param name="privateKeySalt">The salt used for encrypting the private key.</param>
+        /// <param name="mnemonicSalt">The salt used for encrypting the mnemonic.</param>
         private static void HandleUserInput(string[] words, EthECKey ecKey, string message, string signature, string encryptedPrivateKey, string encryptedMnemonic, byte[] hashedSignature, byte[] privateKeySalt, byte[] mnemonicSalt)
         {
             var random = new Random();
@@ -170,6 +212,16 @@ namespace SecureWalletGenerator
             VerifyAndDecryptPrivateKey(ecKey, message, encryptedPrivateKey, encryptedMnemonic, signature, privateKeySalt, mnemonicSalt);
         }
 
+        /// <summary>
+        /// Verifies the message signature and decrypts the private key and mnemonic if the signature is valid.
+        /// </summary>
+        /// <param name="ecKey">The Ethereum private key.</param>
+        /// <param name="message">The original message.</param>
+        /// <param name="encryptedPrivateKey">The encrypted private key.</param>
+        /// <param name="encryptedMnemonic">The encrypted mnemonic.</param>
+        /// <param name="signature">The original signature.</param>
+        /// <param name="privateKeySalt">The salt used for encrypting the private key.</param>
+        /// <param name="mnemonicSalt">The salt used for encrypting the mnemonic.</param>
         private static void VerifyAndDecryptPrivateKey(EthECKey ecKey, string message, string encryptedPrivateKey, string encryptedMnemonic, string signature, byte[] privateKeySalt, byte[] mnemonicSalt)
         {
             Console.Write(enterSignMessage);
@@ -211,6 +263,11 @@ namespace SecureWalletGenerator
             }
         }
 
+        /// <summary>
+        /// Computes the SHA-256 hash of the provided string.
+        /// </summary>
+        /// <param name="rawData">The raw data to be hashed.</param>
+        /// <returns>A byte array containing the computed hash.</returns>
         private static byte[] ComputeSha256Hash(string rawData)
         {
             using (SHA256 sha256Hash = SHA256.Create())
@@ -219,6 +276,13 @@ namespace SecureWalletGenerator
             }
         }
 
+        /// <summary>
+        /// Encrypts a private key using AES encryption with a salt.
+        /// </summary>
+        /// <param name="privateKeyBytes">The private key to encrypt.</param>
+        /// <param name="password">The password used for encryption.</param>
+        /// <param name="salt">The generated salt used for encryption.</param>
+        /// <returns>The encrypted private key as a Base64 string.</returns>
         private static string EncryptPrivateKeyWithSalt(byte[] privateKeyBytes, byte[] password, out byte[] salt)
         {
             using (Aes aes = Aes.Create())
@@ -243,6 +307,13 @@ namespace SecureWalletGenerator
             }
         }
 
+        /// <summary>
+        /// Decrypts an encrypted private key using AES encryption with a salt.
+        /// </summary>
+        /// <param name="encryptedPrivateKey">The encrypted private key as a Base64 string.</param>
+        /// <param name="password">The password used for decryption.</param>
+        /// <param name="salt">The salt used for decryption.</param>
+        /// <returns>The decrypted private key as a byte array.</returns>
         private static byte[] DecryptPrivateKeyWithSalt(string encryptedPrivateKey, byte[] password, byte[] salt)
         {
             byte[] fullCipher = Convert.FromBase64String(encryptedPrivateKey);
@@ -273,6 +344,13 @@ namespace SecureWalletGenerator
             }
         }
 
+        /// <summary>
+        /// Encrypts a plain text string using AES encryption with a salt.
+        /// </summary>
+        /// <param name="plainText">The plain text to encrypt.</param>
+        /// <param name="password">The password used for encryption.</param>
+        /// <param name="salt">The generated salt used for encryption.</param>
+        /// <returns>The encrypted string as a Base64 string.</returns>
         private static string EncryptStringWithSalt(string plainText, byte[] password, out byte[] salt)
         {
             using (Aes aes = Aes.Create())
@@ -300,6 +378,13 @@ namespace SecureWalletGenerator
             }
         }
 
+        /// <summary>
+        /// Decrypts an encrypted string using AES encryption with a salt.
+        /// </summary>
+        /// <param name="encryptedText">The encrypted text as a Base64 string.</param>
+        /// <param name="password">The password used for decryption.</param>
+        /// <param name="salt">The salt used for decryption.</param>
+        /// <returns>The decrypted string.</returns>
         private static string DecryptStringWithSalt(string encryptedText, byte[] password, byte[] salt)
         {
             byte[] fullCipher = Convert.FromBase64String(encryptedText);
@@ -330,6 +415,12 @@ namespace SecureWalletGenerator
             }
         }
 
+        /// <summary>
+        /// Validates the user input against the selected words.
+        /// </summary>
+        /// <param name="userInputs">The user-provided words.</param>
+        /// <param name="selectedWords">The selected words and their positions.</param>
+        /// <returns>True if the input matches the selected words, otherwise false.</returns>
         private static bool ValidateUserInput(string[] userInputs, List<dynamic> selectedWords)
         {
             if (userInputs == null || selectedWords == null || userInputs.Length != selectedWords.Count)
@@ -348,12 +439,23 @@ namespace SecureWalletGenerator
             return true;
         }
 
+        /// <summary>
+        /// Retrieves an Ethereum account from the given mnemonic and password.
+        /// </summary>
+        /// <param name="mnemonic">The mnemonic phrase.</param>
+        /// <param name="password">The password used for deriving the account.</param>
+        /// <param name="index">The index of the account to retrieve.</param>
+        /// <returns>An instance of <see cref="Account"/> representing the retrieved account.</returns>
         private static Account RetrieveAccount(string mnemonic, byte[] password, int index)
         {
             var wallet = new Wallet(mnemonic, Encoding.UTF8.GetString(password));
             return wallet.GetAccount(index);
         }
 
+        /// <summary>
+        /// Reads user input securely by masking the input characters.
+        /// </summary>
+        /// <returns>The user input as a string.</returns>
         private static string SecureReadLine()
         {
             StringBuilder input = new StringBuilder();
@@ -382,6 +484,10 @@ namespace SecureWalletGenerator
             return input.ToString();
         }
 
+        /// <summary>
+        /// Clears sensitive data from a byte array.
+        /// </summary>
+        /// <param name="data">The byte array to clear.</param>
         private static void ClearSensitiveData(byte[] data)
         {
             if (data != null)
@@ -390,6 +496,10 @@ namespace SecureWalletGenerator
             }
         }
 
+        /// <summary>
+        /// Clears sensitive data from a StringBuilder instance.
+        /// </summary>
+        /// <param name="data">The StringBuilder instance to clear.</param>
         private static void ClearSensitiveString(StringBuilder data)
         {
             if (data != null)
@@ -398,6 +508,10 @@ namespace SecureWalletGenerator
             }
         }
 
+        /// <summary>
+        /// Logs an error to a log file.
+        /// </summary>
+        /// <param name="e">The exception to log.</param>
         private static void LogError(Exception e)
         {
             using (StreamWriter log = File.AppendText("error_log.txt"))
